@@ -6,6 +6,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.11] - 2026-09-28
+
 ### Fixed
 
 - GitHub Action: when the base-branch estimate fails, the job now shows
