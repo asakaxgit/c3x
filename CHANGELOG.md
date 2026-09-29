@@ -6,6 +6,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.15] - 2026-09-29
+
 ### Fixed
 
 - GitHub Action: a pull request that breaks a budget gate now still gets
