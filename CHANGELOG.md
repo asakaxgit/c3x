@@ -6,6 +6,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.14] - 2026-09-29
+
 ### Changed
 
 - Pull request comments carry the c3x mark in their heading ("C3X cost
