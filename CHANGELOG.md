@@ -6,6 +6,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.16] - 2026-09-29
+
 ### Fixed
 
 - CloudFormation: numbers and booleans written as strings, which
