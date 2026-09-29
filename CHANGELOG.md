@@ -6,6 +6,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.19] - 2026-09-29
+
 ### Changed
 
 - Resources inside modules are shown by their Terraform address,
