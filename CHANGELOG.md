@@ -6,6 +6,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.12] - 2026-09-29
+
 ### Fixed
 
 - GitHub Action: installing c3x no longer fails with HTTP 403 (#96).
