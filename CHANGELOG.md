@@ -6,6 +6,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.18] - 2026-09-29
+
 ### Fixed
 
 - The caveat summary in markdown output and PR comments names the kinds
