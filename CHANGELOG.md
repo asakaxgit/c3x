@@ -6,6 +6,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.13] - 2026-09-29
+
 ### Changed
 
 - The GitHub Action's display name is now "C3X Cost Estimation" and its
