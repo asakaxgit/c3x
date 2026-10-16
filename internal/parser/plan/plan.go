@@ -207,12 +207,11 @@ func ParseStateFile(path string, logger *slog.Logger) ([]domain.Resource, error)
 }
 
 // ParseStateBytes parses an in-memory state document. Its resources carry
-// the real identifiers (a bucket's name, a function's ARN) rather than the
-// expressions in configuration, which is why usage sync reads it. The
-// module tree has the same shape as a plan's planned_values, so it is
-// walked by [collectPlanned]. A state records no intent, so Action stays
-// unset. An empty state (no `values`) yields no resources; a plan is
-// rejected, since silently returning nothing for it would hide a wrong file.
+// the real identifiers (a bucket's name) rather than configuration
+// expressions, which is why usage sync reads it. An empty state yields no
+// resources; a plan or a raw terraform.tfstate is an error, since both
+// would otherwise parse to nothing. Deposed objects are skipped so one
+// address maps to one resource.
 func ParseStateBytes(raw []byte, logger *slog.Logger) ([]domain.Resource, error) {
 	if logger == nil {
 		logger = slog.Default()
@@ -225,10 +224,14 @@ func ParseStateBytes(raw []byte, logger *slog.Logger) ([]domain.Resource, error)
 		if doc.PlannedValues != nil || len(doc.ResourceChanges) > 0 {
 			return nil, errors.New("this is a plan, not a state: use `terraform show -json` without a plan file")
 		}
+		if doc.Resources != nil || doc.Version != nil {
+			return nil, errors.New("this is a raw Terraform state file, not `terraform show -json` output: " +
+				"run `terraform show -json > state.json` and pass that")
+		}
 		return nil, nil
 	}
 	var out []domain.Resource
-	collectPlanned(doc.Values.RootModule, defaultRegion(doc.Configuration), nil, &out)
+	walkModule(doc.Values.RootModule, defaultRegion(doc.Configuration), nil, true, &out)
 	logger.Debug("state parsed", "resources", len(out))
 	return out, nil
 }
@@ -238,11 +241,16 @@ func ParseStateBytes(raw []byte, logger *slog.Logger) ([]domain.Resource, error)
 // untrusted plan JSON can contain) are skipped rather than dereferenced.
 // Each resource is annotated with its PlanAction from the actions map.
 func collectPlanned(mod *plannedModule, region string, actions map[string]domain.PlanAction, out *[]domain.Resource) {
+	walkModule(mod, region, actions, false, out)
+}
+
+// walkModule is [collectPlanned], optionally skipping deposed state objects.
+func walkModule(mod *plannedModule, region string, actions map[string]domain.PlanAction, skipDeposed bool, out *[]domain.Resource) {
 	if mod == nil {
 		return
 	}
 	for _, pr := range mod.Resources {
-		if pr.Mode != "managed" {
+		if pr.Mode != "managed" || (skipDeposed && pr.DeposedKey != "") {
 			continue
 		}
 		attrs, _ := pr.Values.(map[string]any)
@@ -255,7 +263,7 @@ func collectPlanned(mod *plannedModule, region string, actions map[string]domain
 		*out = append(*out, r)
 	}
 	for _, child := range mod.ChildModules {
-		collectPlanned(child, region, actions, out)
+		walkModule(child, region, actions, skipDeposed, out)
 	}
 }
 
@@ -395,6 +403,8 @@ type planFile struct {
 	// planned_values instead.
 	Values          *plannedValues   `json:"values"`
 	PlannedValues   *plannedValues   `json:"planned_values"`
+	Version         json.RawMessage  `json:"version"`
+	Resources       json.RawMessage  `json:"resources"`
 	ResourceChanges []resourceChange `json:"resource_changes"`
 	Configuration   *configuration   `json:"configuration"`
 }
@@ -410,11 +420,12 @@ type plannedModule struct {
 }
 
 type plannedResource struct {
-	Address string `json:"address"`
-	Mode    string `json:"mode"`
-	Type    string `json:"type"`
-	Name    string `json:"name"`
-	Values  any    `json:"values"`
+	Address    string `json:"address"`
+	Mode       string `json:"mode"`
+	Type       string `json:"type"`
+	Name       string `json:"name"`
+	Values     any    `json:"values"`
+	DeposedKey string `json:"deposed_key"`
 }
 
 type resourceChange struct {

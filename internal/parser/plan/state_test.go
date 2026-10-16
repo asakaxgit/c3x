@@ -112,3 +112,68 @@ func TestParseState_RejectsInvalidJSON(t *testing.T) {
 		t.Fatal("want an error for invalid JSON")
 	}
 }
+
+// A raw terraform.tfstate has no `values` and used to parse to nothing.
+func TestParseState_RejectsARawStateFile(t *testing.T) {
+	t.Parallel()
+
+	for name, raw := range map[string]string{
+		"with resources": `{"version":4,"terraform_version":"1.9.0","serial":3,"lineage":"abc","outputs":{},
+			"resources":[{"mode":"managed","type":"aws_s3_bucket","name":"data","provider":"provider[\"registry.terraform.io/hashicorp/aws\"]",
+			"instances":[{"schema_version":0,"attributes":{"bucket":"acme-data"}}]}]}`,
+		"empty":        `{"version":4,"terraform_version":"1.9.0","serial":1,"lineage":"abc","outputs":{},"resources":[]}`,
+		"version only": `{"version":4}`,
+	} {
+		_, err := plan.ParseStateBytes([]byte(raw), nil)
+		if err == nil || !strings.Contains(err.Error(), "terraform show -json") || !strings.Contains(err.Error(), "raw Terraform state") {
+			t.Errorf("%s: err = %v, want an error telling the user to run terraform show -json", name, err)
+		}
+	}
+}
+
+// A create_before_destroy replacement lists the old object (deposed_key)
+// under the same address as the new one; only the current one is kept.
+func TestParseState_SkipsDeposedObjects(t *testing.T) {
+	t.Parallel()
+
+	current := `{"address":"aws_s3_bucket.data","mode":"managed","type":"aws_s3_bucket","name":"data",
+		"values":{"bucket":"acme-data-new"}}`
+	deposed := `{"address":"aws_s3_bucket.data","mode":"managed","type":"aws_s3_bucket","name":"data",
+		"deposed_key":"0f6b8c1d","values":{"bucket":"acme-data-old"}}`
+
+	for name, resources := range map[string]string{
+		"deposed first": deposed + "," + current,
+		"current first": current + "," + deposed,
+	} {
+		raw := `{"values":{"root_module":{"resources":[` + resources + `],
+			"child_modules":[{"address":"module.m","resources":[` +
+			strings.ReplaceAll(strings.ReplaceAll(deposed, "aws_s3_bucket.data", "module.m.aws_s3_bucket.data"), "acme-data-old", "acme-m-old") +
+			`]}]}}}`
+		got, err := plan.ParseStateBytes([]byte(raw), nil)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if len(got) != 1 {
+			t.Fatalf("%s: got %d resources, want 1 (deposed objects skipped): %+v", name, len(got), got)
+		}
+		if got[0].Attributes["bucket"] != "acme-data-new" {
+			t.Errorf("%s: bucket = %v, want the current object's name", name, got[0].Attributes["bucket"])
+		}
+	}
+}
+
+// The deposed filter applies to state only.
+func TestParsePlan_IsUnaffectedByTheDeposedFilter(t *testing.T) {
+	t.Parallel()
+
+	raw := `{"planned_values":{"root_module":{"resources":[
+		{"address":"aws_s3_bucket.data","mode":"managed","type":"aws_s3_bucket","name":"data",
+		 "deposed_key":"x","values":{"bucket":"acme-data"}}]}}}`
+	got, err := plan.ParseBytes([]byte(raw), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Errorf("plan parsed %d resources, want 1: the deposed filter is state-only", len(got))
+	}
+}

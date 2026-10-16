@@ -11,7 +11,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Parser: `parser.ParseState` reads a Terraform state document
   (`terraform show -json` with no plan argument), so resources carry the
   identifiers state records, such as a bucket's real name. It is the
-  groundwork for `c3x usage sync` (#97); no command uses it yet.
+  groundwork for `c3x usage sync` (#97); no command uses it yet. A plan or
+  a raw `terraform.tfstate` is rejected with an error rather than parsed to
+  nothing, and deposed objects are skipped so an address is one resource.
 - Catalog: `aws_keyspaces_table`, `aws_s3tables_table_bucket`,
   `aws_cloudfront_function`, `aws_ec2_transit_gateway_peering_attachment`
   and `aws_ami_copy` are priced, and 17 more AWS kinds are recognised as
