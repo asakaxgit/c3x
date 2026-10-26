@@ -212,20 +212,34 @@ that measures nothing at all (no credentials, no `--state`, a missing
 permission) fails and leaves the existing file as it was, rather than
 replacing it with an empty one.
 
-Today: **AWS S3**. Storage (`standard_storage_gb`) comes from CloudWatch's
-daily `BucketSizeBytes`, which every bucket publishes. Request counts
-come from CloudWatch request metrics, which exist only on a bucket with
-a request-metrics configuration: `monthly_tier_1_requests` is PUT, COPY,
-POST and LIST, and `monthly_tier_2_requests` is GET, SELECT and the rest.
-A bucket without that configuration, or with more than one, is listed
-under `errors` and not guessed, and its storage value is still written.
-The count is the window's total expressed per 30 days, so the default
-`--days 30` is the measured total. It needs `cloudwatch:GetMetricData`
-and `cloudwatch:ListMetrics`; GetMetricData is billed per metric
-requested. The real bucket name comes from `--state`; without it a
-literal name in the configuration is used. Lambda, NAT gateway,
-CloudFront and GCP follow; see
-[the design](docs/design/usage-sync.md) and ROADMAP section K.
+Today: **AWS S3, Lambda and NAT gateways**, all from CloudWatch. S3
+storage (`standard_storage_gb`) comes from the daily `BucketSizeBytes`,
+which every bucket publishes. S3 request counts come from request
+metrics, which exist only on a bucket with a request-metrics
+configuration: `monthly_tier_1_requests` is PUT, COPY, POST and LIST,
+and `monthly_tier_2_requests` is GET, SELECT and the rest. A bucket
+without that configuration, or with more than one, is listed under
+`errors` and not guessed, and its storage value is still written.
+
+Lambda writes `monthly_requests` (Invocations) and `request_duration_ms`
+(Duration, the average milliseconds per invocation), using the
+`FunctionName` dimension so every version and alias is included. Neither
+key is written unless both metrics are present, so a missing duration is
+not filled with the catalog's 100 ms default. A NAT gateway writes
+`monthly_data_processed_gb` from bytes in from the VPC and from the
+internet; bytes leaving the other side are the same traffic and are not
+added. A zonal gateway is one series. A regional gateway publishes a
+series per availability zone, and those are summed only when the
+gateway-level series is empty, so the two are not both counted.
+
+Counts and bytes are the window's total expressed per 30 days, so the
+default `--days 30` is the measured total. Duration is not scaled: it is
+already a per-request average. This needs `cloudwatch:GetMetricData` and
+`cloudwatch:ListMetrics`; GetMetricData is billed per metric requested.
+The real name comes from `--state`; without it a literal in the
+configuration is used (`bucket`, `function_name`, or `id`). A NAT
+gateway's `id` is computed, so it needs `--state`. CloudFront and GCP
+follow; see [the design](docs/design/usage-sync.md) and ROADMAP section K.
 
 ## How much to trust a number
 
