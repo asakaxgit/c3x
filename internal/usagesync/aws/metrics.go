@@ -129,6 +129,10 @@ func metricSeries(ctx context.Context, cw CloudWatch, r seriesRequest) (map[stri
 // listMetrics returns each matching metric's dimensions. RecentlyActive is
 // left unset: that flag only returns metrics touched in the last three
 // hours, which would hide a bucket that was quiet today.
+//
+// metric may be empty. That lists every metric in the namespace for these
+// dimensions (a regional NAT gateway's per-zone series). An empty
+// MetricName on the request would match nothing, so it is left unset.
 func listMetrics(ctx context.Context, cw CloudWatch, namespace, metric string, dimensions map[string]string) ([]map[string]string, error) {
 	filters := make([]types.DimensionFilter, 0, len(dimensions))
 	for name, value := range dimensions {
@@ -136,17 +140,24 @@ func listMetrics(ctx context.Context, cw CloudWatch, namespace, metric string, d
 	}
 	in := &cloudwatch.ListMetricsInput{
 		Namespace:  ptr(namespace),
-		MetricName: ptr(metric),
 		Dimensions: filters,
+	}
+	// Keep the S3 error text "CloudWatch ListMetrics AWS/S3/AllRequests".
+	// A namespace-only listing names just the namespace.
+	label := namespace + "/" + metric
+	if metric == "" {
+		label = namespace
+	} else {
+		in.MetricName = ptr(metric)
 	}
 	var out []map[string]string
 	for page := 0; page < maxPages; page++ {
 		resp, err := cw.ListMetrics(ctx, in)
 		if err != nil {
-			return nil, fmt.Errorf("CloudWatch ListMetrics %s/%s: %w", namespace, metric, err)
+			return nil, fmt.Errorf("CloudWatch ListMetrics %s: %w", label, err)
 		}
 		if resp == nil {
-			return nil, fmt.Errorf("CloudWatch ListMetrics %s/%s: empty response", namespace, metric)
+			return nil, fmt.Errorf("CloudWatch ListMetrics %s: empty response", label)
 		}
 		for _, m := range resp.Metrics {
 			dims := make(map[string]string, len(m.Dimensions))
@@ -163,7 +174,7 @@ func listMetrics(ctx context.Context, cw CloudWatch, namespace, metric string, d
 		}
 		in.NextToken = resp.NextToken
 	}
-	return nil, fmt.Errorf("CloudWatch ListMetrics %s/%s: more than %d pages", namespace, metric, maxPages)
+	return nil, fmt.Errorf("CloudWatch ListMetrics %s: more than %d pages", label, maxPages)
 }
 
 func deref(p *string) string {

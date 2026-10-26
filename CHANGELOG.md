@@ -15,6 +15,13 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is listed under `errors` and not guessed; its `standard_storage_gb` is
   still written. The count is the window's total expressed per 30 days,
   so the default `--days 30` is the measured total. (#97)
+- `c3x usage sync` measures Lambda (`monthly_requests` from CloudWatch
+  Invocations, `request_duration_ms` as the average Duration in
+  milliseconds; neither key is written unless both metrics are present)
+  and NAT gateway data processed (`monthly_data_processed_gb` from bytes
+  in from the VPC and from the internet, summed across availability zones
+  only when the gateway-level metric is empty). Counts and bytes are the
+  window's total expressed per 30 days; duration is not scaled. (#97)
 
 ## [0.3.21] - 2026-10-23
 

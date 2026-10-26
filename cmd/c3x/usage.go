@@ -71,15 +71,25 @@ Terraform state (terraform show -json > state.json) with --state; without
 it a literal name in the configuration is used. A resource whose name or
 region cannot be established is skipped and listed, never guessed.
 
-AWS: S3 bucket storage (standard_storage_gb) from CloudWatch
+AWS, from CloudWatch. S3 bucket storage (standard_storage_gb) from
 BucketSizeBytes, which every bucket publishes. S3 request counts
 (monthly_tier_1_requests for PUT, COPY, POST and LIST;
-monthly_tier_2_requests for GET, SELECT and the rest) from CloudWatch
-request metrics, and only for a bucket with a single request-metrics
+monthly_tier_2_requests for GET, SELECT and the rest) from request
+metrics, and only for a bucket with a single request-metrics
 configuration. A bucket without one, or with several, is listed and its
-storage is still written; the counts are not guessed. Needs
-cloudwatch:GetMetricData and cloudwatch:ListMetrics. GetMetricData is
-billed per metric requested.`,
+storage is still written; the counts are not guessed.
+
+Lambda: monthly_requests from Invocations and request_duration_ms from
+Duration (the average milliseconds per invocation). The dimension is
+FunctionName, so every version and alias is included. Neither key is
+written unless both metrics are present. NAT gateways:
+monthly_data_processed_gb from bytes in from the VPC and from the
+internet. A zonal gateway is read by NatGatewayId; a regional one, which
+publishes one series per availability zone, is the sum of those zones,
+and only when the gateway-level metric is empty.
+
+Needs cloudwatch:GetMetricData and cloudwatch:ListMetrics. GetMetricData
+is billed per metric requested.`,
 		Example: `  terraform show -json > state.json
   c3x usage sync --state state.json
   c3x estimate`,

@@ -40,7 +40,11 @@ func Resolve(resources, state []domain.Resource, haveState bool, fallbackRegion 
 }
 
 // idAttribute is the attribute that names a resource in the cloud.
-var idAttribute = map[string]string{"aws_s3_bucket": "bucket"}
+var idAttribute = map[string]string{
+	"aws_s3_bucket":       "bucket",
+	"aws_lambda_function": "function_name",
+	"aws_nat_gateway":     "id",
+}
 
 func identify(r domain.Resource, state map[string]domain.Resource, haveState bool, fallbackRegion string) (id, region, problem string) {
 	attr := idAttribute[r.Ref.Kind]
