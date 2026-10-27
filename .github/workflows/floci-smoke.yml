@@ -1,0 +1,38 @@
+# Fork-only. This workflow runs the CloudWatch usage-sync smoke test
+# against Floci. It must never be sent upstream: upstream CI has no
+# emulator, and `go test ./...` does not build the floci-tagged file.
+name: Floci smoke
+
+on:
+  push:
+    branches: [usage-sync-requests]
+  pull_request:
+    branches: [usage-sync-requests]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  floci:
+    name: floci
+    runs-on: ubuntu-latest
+    services:
+      floci:
+        image: floci/floci:2.3.0
+        ports:
+          - 4566:4566
+        options: >-
+          --health-cmd /usr/local/bin/healthcheck.sh
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+          --health-start-period 10s
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+          cache: true
+      - name: CloudWatch usage sync against Floci
+        run: go test -tags floci -count=1 ./internal/usagesync/...
