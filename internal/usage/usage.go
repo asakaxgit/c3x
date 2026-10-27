@@ -15,7 +15,7 @@
 //	resource_usage:
 //	  aws_lambda_function.api:
 //	    monthly_requests: 1500000
-//	    average_duration_ms: 250
+//	    request_duration_ms: 250
 //	  aws_s3_bucket.data:
 //	    standard_storage_gb: 500
 //	    monthly_tier_1_requests: 1000
@@ -38,6 +38,11 @@
 // without that configuration leaves the request keys unset and records
 // why under `errors`; it does not write a zero, and the storage value is
 // still there. A hand-written request count wins over either.
+//
+// For a Lambda function, sync fills `monthly_requests` and
+// `request_duration_ms` together, from CloudWatch Invocations and
+// Duration. For a NAT gateway it fills `monthly_data_processed_gb`.
+// A hand-written value for any of those keys wins.
 package usage
 
 import (
