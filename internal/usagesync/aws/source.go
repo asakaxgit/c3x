@@ -55,7 +55,9 @@ func (s *Source) Provider() string { return "aws" }
 // Emits implements [usagesync.Source].
 func (s *Source) Emits() map[string][]string {
 	return map[string][]string{
-		kindS3Bucket: {keyStandardStorageGB, keyMonthlyTier1Requests, keyMonthlyTier2Requests},
+		kindS3Bucket:       {keyStandardStorageGB, keyMonthlyTier1Requests, keyMonthlyTier2Requests},
+		kindLambdaFunction: {keyMonthlyRequests, keyRequestDurationMS},
+		kindNATGateway:     {keyMonthlyDataProcessedGB},
 	}
 }
 
@@ -64,6 +66,10 @@ func (s *Source) Collect(ctx context.Context, t usagesync.Target, w usagesync.Wi
 	switch t.Kind {
 	case kindS3Bucket:
 		return s.s3Bucket(ctx, t, w)
+	case kindLambdaFunction:
+		return s.lambdaFunction(ctx, t, w)
+	case kindNATGateway:
+		return s.natGateway(ctx, t, w)
 	default:
 		return usagesync.Result{}, fmt.Errorf("usage sync does not support %s", t.Kind)
 	}

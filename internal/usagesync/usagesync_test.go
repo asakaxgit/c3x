@@ -58,6 +58,30 @@ func s3(name, bucket string, region *string) domain.Resource {
 	}
 }
 
+func lambdaRes(name, functionName string, region *string) domain.Resource {
+	attrs := map[string]any{}
+	if functionName != "" {
+		attrs["function_name"] = functionName
+	}
+	return domain.Resource{
+		Ref:        domain.Reference{Kind: "aws_lambda_function", Name: name},
+		Attributes: attrs,
+		Region:     region,
+	}
+}
+
+func natRes(name, id string, region *string) domain.Resource {
+	attrs := map[string]any{}
+	if id != "" {
+		attrs["id"] = id
+	}
+	return domain.Resource{
+		Ref:        domain.Reference{Kind: "aws_nat_gateway", Name: name},
+		Attributes: attrs,
+		Region:     region,
+	}
+}
+
 func ptr(s string) *string { return &s }
 
 var emits = map[string][]string{"aws_s3_bucket": {"standard_storage_gb"}}
@@ -128,6 +152,60 @@ func TestResolve_NeverGuesses(t *testing.T) {
 	}
 	if _, ok := problems["aws_instance.web"]; ok {
 		t.Error("a kind the source does not support must be ignored, not reported")
+	}
+}
+
+func TestResolve_LambdaAndNAT(t *testing.T) {
+	t.Parallel()
+	known := map[string][]string{
+		"aws_lambda_function": {"monthly_requests", "request_duration_ms"},
+		"aws_nat_gateway":     {"monthly_data_processed_gb"},
+	}
+	cfg := []domain.Resource{
+		lambdaRes("api", "", ptr("eu-west-1")),
+		natRes("main", "", ptr("eu-west-1")),
+	}
+	targets, problems := usagesync.Resolve(cfg, nil, false, "", known)
+	if len(targets) != 0 {
+		t.Errorf("targets = %+v, want none; neither name is a literal", targets)
+	}
+	if !strings.Contains(problems["aws_lambda_function.api"], "function_name is not a literal") ||
+		!strings.Contains(problems["aws_lambda_function.api"], "pass --state") {
+		t.Errorf("lambda: %q", problems["aws_lambda_function.api"])
+	}
+	if !strings.Contains(problems["aws_nat_gateway.main"], "id is not a literal") ||
+		!strings.Contains(problems["aws_nat_gateway.main"], "pass --state") {
+		t.Errorf("nat: %q", problems["aws_nat_gateway.main"])
+	}
+
+	// A literal function name needs no state. A NAT id is computed, so it
+	// still does not.
+	literal := []domain.Resource{lambdaRes("api", "api-prod", ptr("eu-west-1")), natRes("main", "", ptr("eu-west-1"))}
+	targets, problems = usagesync.Resolve(literal, nil, false, "", known)
+	if len(targets) != 1 || targets[0].ID != "api-prod" || targets[0].Kind != "aws_lambda_function" {
+		t.Errorf("targets = %+v, want the function named in configuration", targets)
+	}
+	if !strings.Contains(problems["aws_nat_gateway.main"], "pass --state") {
+		t.Errorf("nat without an id: %q", problems["aws_nat_gateway.main"])
+	}
+
+	state := []domain.Resource{
+		lambdaRes("api", "api-prod", ptr("ap-northeast-1")),
+		natRes("main", "nat-0abc", ptr("us-east-1")),
+	}
+	targets, problems = usagesync.Resolve(cfg, state, true, "", known)
+	if len(problems) != 0 {
+		t.Fatalf("problems = %v", problems)
+	}
+	got := map[string]usagesync.Target{}
+	for _, target := range targets {
+		got[target.Address] = target
+	}
+	if got["aws_lambda_function.api"].ID != "api-prod" || got["aws_lambda_function.api"].Region != "ap-northeast-1" {
+		t.Errorf("lambda = %+v", got["aws_lambda_function.api"])
+	}
+	if got["aws_nat_gateway.main"].ID != "nat-0abc" || got["aws_nat_gateway.main"].Region != "us-east-1" {
+		t.Errorf("nat = %+v", got["aws_nat_gateway.main"])
 	}
 }
 

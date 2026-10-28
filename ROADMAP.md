@@ -171,7 +171,8 @@ Design: [`docs/design/usage-sync.md`](docs/design/usage-sync.md), issue #97.
   kept). Cost Explorer fallback — account-level unless cost allocation by
   resource is enabled, recorded in `synced` — still needs the snapshot
   shape for that distinction.
-- [ ] **K.3** [**S**] Lambda and NAT gateway (CloudWatch).
+- [x] **K.3** [**S**] Lambda (`monthly_requests`, `request_duration_ms`) and
+  NAT gateway (`monthly_data_processed_gb`) from CloudWatch.
 - [ ] **K.4** [**M**] CloudFront transfer by region group (Cost Explorer).
 - [ ] **K.5** [**L**] GCP: Cloud Run v2 and GCS.
 
